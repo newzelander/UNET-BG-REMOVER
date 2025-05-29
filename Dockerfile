@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsm6 \
     libxext6 \
     libxrender-dev \
+    libgl1-mesa-glx \
  && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -24,12 +25,12 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Clone U-2-Net repo (you may want to pin to a specific commit or tag for stability)
+# Clone U-2-Net repo (pinning to a specific commit/tag is recommended)
 RUN git clone https://github.com/NathanUA/U-2-Net.git U-2-Net
 
-# Optional: Download model weights during build (requires gdown, or use curl/wget)
-# RUN pip install gdown && \
-#     gdown --id 1rbSTGKAE-MTxBYHd-51l2hMOQPT_7EPy -O U-2-Net/saved_models/u2net/u2net.pth
+# Download model weights during build
+RUN pip install --no-cache-dir gdown && \
+    gdown --id 1rbSTGKAE-MTxBYHd-51l2hMOQPT_7EPy -O U-2-Net/saved_models/u2net/u2net.pth
 
 # Copy your application code
 COPY app.py .
