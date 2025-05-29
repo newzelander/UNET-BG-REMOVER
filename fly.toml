@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for modnet-bgremover on 2025-05-24T20:41:51Z
+# fly.toml app configuration file generated for unet-bg-remover on 2025-05-29T01:07:05Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'modnet-bgremover'
+app = 'unet-bg-remover'
 primary_region = 'waw'
 
 [build]
