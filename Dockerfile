@@ -1,45 +1,29 @@
-# Use an official slim Python image
+# Use an official Python runtime as a parent image
 FROM python:3.11-slim
 
-# Set environment variables to prevent Python from writing .pyc files and buffering stdout/stderr
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-# Set the working directory
+# Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    curl \
-    wget \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgl1-mesa-glx \
- && rm -rf /var/lib/apt/lists/*
+# Install git
+RUN apt-get update && apt-get install -y git && apt-get clean
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
-
-# Clone U-2-Net repo (pinning to a specific commit/tag is recommended)
+# Clone the U-2-Net repository
 RUN git clone https://github.com/NathanUA/U-2-Net.git U-2-Net
 
-# Download model weights during build
+# Install gdown and download the model weights, creating required directories first
 RUN pip install --no-cache-dir gdown && \
+    mkdir -p U-2-Net/saved_models/u2net && \
     gdown --id 1rbSTGKAE-MTxBYHd-51l2hMOQPT_7EPy -O U-2-Net/saved_models/u2net/u2net.pth
 
-# Copy your application code
-COPY app.py .
+# Install other python dependencies if you have requirements.txt
+# COPY requirements.txt ./
+# RUN pip install --no-cache-dir -r requirements.txt
 
-# Set PYTHONPATH so your app can import from U-2-Net
-ENV PYTHONPATH="${PYTHONPATH}:/app/U-2-Net"
+# Copy your application code (adjust as needed)
+# COPY . .
 
-# Expose FastAPI port
-EXPOSE 8000
+# Expose any ports if necessary
+# EXPOSE 8000
 
-# Run FastAPI app with Uvicorn
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Set default command
+# CMD ["python", "your_app.py"]
