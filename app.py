@@ -132,3 +132,9 @@ async def remove_background(file: UploadFile = File(...)):
     except Exception as e:
         print(f"❌ Post-processing error: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate output image")
+
+# Run with uvicorn on host 0.0.0.0 and port 8000 as Fly.io requires
+if __name__ == "__main__":
+    import uvicorn
+    print("🚀 Starting uvicorn server on 0.0.0.0:8000")
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, log_level="info")
