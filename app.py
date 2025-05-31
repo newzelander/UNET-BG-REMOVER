@@ -1,18 +1,20 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 from PIL import Image
 import io
 import torch
 import numpy as np
 import cv2
 import torchvision.transforms as transforms
-
-# Import the full U2NET model class
 from model.u2net import U2NET
 
 app = FastAPI()
 
+# Allow CORS for Webflow
 origins = [
     "https://spaceluma.webflow.io",
 ]
@@ -25,6 +27,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 8MB size limit
+MAX_FILE_SIZE_MB = 8
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+
+# Load model
 MODEL_PATH = "saved_models/u2net/u2net.pth"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -33,6 +40,7 @@ model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
 model.to(device)
 model.eval()
 
+# Preprocess image for model
 def preprocess(pil_image):
     transform = transforms.Compose([
         transforms.Resize((320, 320)),
@@ -44,6 +52,7 @@ def preprocess(pil_image):
     ])
     return transform(pil_image).unsqueeze(0)
 
+# Background removal logic
 def remove_background(pil_image):
     input_tensor = preprocess(pil_image).to(device)
     with torch.no_grad():
@@ -68,11 +77,19 @@ def remove_background(pil_image):
 
 @app.post("/remove-background")
 async def api_remove_background(file: UploadFile = File(...)):
+    # File type check
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Uploaded file is not an image.")
+
+    # Size check
     contents = await file.read()
-    pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
-    file.file.close()
+    if len(contents) > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(status_code=413, detail="File too large. Max 8MB allowed.")
+
+    try:
+        pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Unable to open image. Please upload a valid file.")
 
     output_img = remove_background(pil_image)
     buf = io.BytesIO()
