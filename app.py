@@ -12,7 +12,7 @@ import torchvision.transforms as transforms
 
 print("🚀 Starting U-2-Net API...")
 
-# Add U-2-Net repo to path
+# Add U-2-Net repo to Python path
 sys.path.append("/app/U-2-Net")
 print(f"📂 PYTHONPATH: {sys.path}")
 
@@ -21,6 +21,7 @@ try:
     print("✅ U2NET module imported successfully")
 except Exception as e:
     print(f"❌ Error importing U2NET: {e}")
+    raise
 
 app = FastAPI()
 
@@ -35,24 +36,12 @@ app.add_middleware(
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"🖥️ Using device: {DEVICE}")
 
-def download_weights_if_needed():
-    import gdown
-    os.makedirs("/app/U-2-Net/saved_models/u2net", exist_ok=True)
-    url = "https://drive.google.com/uc?id=1HlUE4ZblTppQfQ2HwqOUYx6RX_V3TRKF"
-    output_path = "/app/U-2-Net/saved_models/u2net/u2net.pth"
-    if not os.path.exists(output_path):
-        print("⬇️ Downloading U2NET weights...")
-        gdown.download(url, output_path, quiet=False)
-        print("✅ Download complete.")
-    else:
-        print("📦 Weights already present.")
-
 def load_model():
     try:
-        download_weights_if_needed()
         print("🔄 Loading model...")
         model = U2NET(3, 1)
-        model.load_state_dict(torch.load("/app/U-2-Net/saved_models/u2net/u2net.pth", map_location=DEVICE))
+        model_path = "/app/U-2-Net/saved_models/u2net/u2net.pth"
+        model.load_state_dict(torch.load(model_path, map_location=DEVICE))
         model.to(DEVICE)
         model.eval()
         print("✅ Model loaded successfully")
