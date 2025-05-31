@@ -79,3 +79,7 @@ async def api_remove_background(file: UploadFile = File(...)):
     output_img.save(buf, format="PNG")
     buf.seek(0)
     return StreamingResponse(buf, media_type="image/png")
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
