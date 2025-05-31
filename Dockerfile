@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libgl1-mesa-glx \
     libglib2.0-0 \
+    libgthread-2.0-0 \
     libglib2.0-dev \
     libsm6 \
     libxrender1 \
