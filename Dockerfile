@@ -28,7 +28,7 @@ RUN git clone https://github.com/NathanUA/U-2-Net.git U-2-Net
 
 # Download the model weights
 RUN mkdir -p U-2-Net/saved_models/u2net && \
-    gdown --id 1ao1ovG1Qtx4b7EoskHXmi2E9rp5CHLcZ -O U-2-Net/saved_models/u2net/u2net.pth
+    gdown --id 1rbSTGKAE-MTxBYHd-51l2hMOQPT_7EPy -O U-2-Net/saved_models/u2net/u2net.pth
 
 # Copy your FastAPI app code
 COPY . .
