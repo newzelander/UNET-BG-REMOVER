@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libgl1-mesa-glx \
     libglib2.0-0 \
+    libglib2.0-dev \
     libsm6 \
     libxrender1 \
     libxext6 \
@@ -39,6 +40,9 @@ EXPOSE 8080
 
 # Optional healthcheck script
 RUN echo '#!/bin/sh\ncurl -f http://localhost:8080/health || exit 1' > /healthcheck.sh && chmod +x /healthcheck.sh
+
+# Set environment variable for library path
+ENV LD_LIBRARY_PATH=/lib/x86_64-linux-gnu
 
 # Start FastAPI server
 CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port 8080 --log-level debug"]
