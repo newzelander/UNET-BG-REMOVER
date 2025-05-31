@@ -1,16 +1,16 @@
 FROM python:3.9-slim
 
-# Install system dependencies git and wget
-RUN apt-get update && apt-get install -y git wget && rm -rf /var/lib/apt/lists/*
+# Install system dependencies: git, wget, and gdown
+RUN apt-get update && apt-get install -y git wget && pip install --no-cache-dir gdown && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Clone U-2-Net repo to get model code files
 RUN git clone https://github.com/NathanUA/U-2-Net.git
 
-# Download pretrained weights into saved_models/u2net/
+# Download pretrained weights from Google Drive using gdown
 RUN mkdir -p saved_models/u2net \
-    && wget https://github.com/NathanUA/U-2-Net/releases/download/v1.0/u2net.pth -O saved_models/u2net/u2net.pth
+    && gdown --id 1ao1ovG1Qtx4b7EoskHXmi2E9rp5CHLcZ -O saved_models/u2net/u2net.pth
 
 # Copy only the model files to separate folder
 RUN mkdir model && cp U-2-Net/model/* model/
