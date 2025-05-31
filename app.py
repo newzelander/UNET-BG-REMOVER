@@ -38,7 +38,7 @@ print(f"🖥️ Using device: {DEVICE}")
 def download_weights_if_needed():
     import gdown
     os.makedirs("/app/U-2-Net/saved_models/u2net", exist_ok=True)
-    url = "https://drive.google.com/uc?id=1ao1ovG1Qtx4b7EoskHXmi2E9rp5CHLcZ"
+    url = "https://drive.google.com/uc?id=1rbSTGKAE-MTxBYHd-51l2hMOQPT_7EPy"
     output_path = "/app/U-2-Net/saved_models/u2net/u2net.pth"
     if not os.path.exists(output_path):
         print("⬇️ Downloading U2NET weights...")
