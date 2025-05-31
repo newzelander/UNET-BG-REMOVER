@@ -1,8 +1,14 @@
 FROM python:3.9-slim
 
-# Install system dependencies, including libgl1-mesa-glx and libglib2.0-0 for libGL.so.1, plus gdown
+# Install system dependencies, including libgl1-mesa-glx and libglib2.0-0 + libglib2.0-bin for libgthread-2.0.so.0, plus gdown
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends git wget curl libgl1-mesa-glx libglib2.0-0 && \
+    apt-get install -y --no-install-recommends \
+      git \
+      wget \
+      curl \
+      libgl1-mesa-glx \
+      libglib2.0-0 \
+      libglib2.0-bin && \
     pip install --no-cache-dir gdown && \
     rm -rf /var/lib/apt/lists/*
 
