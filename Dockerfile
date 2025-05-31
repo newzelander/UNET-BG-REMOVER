@@ -25,7 +25,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy your app source code
 COPY app.py .
 
-# Expose port (optional, Fly.io can handle ports dynamically)
+# Expose port (Fly.io or local testing)
 EXPOSE 8080
 
 # Run FastAPI app with Uvicorn
