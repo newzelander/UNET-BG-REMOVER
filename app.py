@@ -1,9 +1,6 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.exceptions import RequestValidationError
-from starlette.requests import Request
-from starlette.responses import JSONResponse
 from PIL import Image
 import io
 import torch
@@ -40,10 +37,10 @@ model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
 model.to(device)
 model.eval()
 
-# Preprocess image for model
+# Preprocess image for model with 1024x1024 size
 def preprocess(pil_image):
     transform = transforms.Compose([
-        transforms.Resize((320, 320)),
+        transforms.Resize((1024, 1024)),  # Changed from 320x320 to 1024x1024
         transforms.ToTensor(),
         transforms.Normalize(
             mean=(0.485, 0.456, 0.406),
