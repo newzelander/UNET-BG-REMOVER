@@ -13,15 +13,9 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-RUN pip install --no-cache-dir \
-    opencv-python \
-    numpy \
-    torch \
-    torchvision \
-    fastapi \
-    uvicorn \
-    gdown
+# Copy requirements and install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Clone U-2-Net
 RUN git clone https://github.com/NathanUA/U-2-Net.git U-2-Net
