@@ -7,14 +7,12 @@ import torch
 import numpy as np
 import cv2
 import torchvision.transforms as transforms
-import os
 
-# Import model class
+# Import the full U2NET model class
 from model.u2net import U2NET
 
 app = FastAPI()
 
-# Allow your frontend domain for CORS
 origins = [
     "https://spaceluma.webflow.io",
 ]
@@ -74,7 +72,7 @@ async def api_remove_background(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Uploaded file is not an image.")
     contents = await file.read()
     pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
-    file.file.close()  # Close the uploaded file
+    file.file.close()
 
     output_img = remove_background(pil_image)
     buf = io.BytesIO()
