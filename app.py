@@ -9,14 +9,14 @@ import cv2
 import torchvision.transforms as transforms
 import os
 
-# Import model class from local model files
+# Import model class
 from model.u2net import U2NET
 
 app = FastAPI()
 
 # Allow your frontend domain for CORS
 origins = [
-    "https://spaceluma.webflow.io",  # change to your actual frontend URL
+    "https://spaceluma.webflow.io",
 ]
 
 app.add_middleware(
@@ -55,7 +55,6 @@ def remove_background(pil_image):
         pred_np = pred.squeeze().cpu().numpy()
 
     alpha = cv2.resize(pred_np, (pil_image.width, pil_image.height), interpolation=cv2.INTER_LINEAR)
-
     alpha_blur = cv2.GaussianBlur(alpha, (5, 5), sigmaX=1.2)
     alpha_mix = np.clip(alpha * 0.75 + alpha_blur * 0.25, 0, 1)
     alpha_boosted = np.power(alpha_mix, 0.85)
@@ -66,7 +65,6 @@ def remove_background(pil_image):
 
     img_np = np.array(pil_image).astype(np.uint8)
     output_rgba = np.dstack((img_np, (alpha_final * 255).astype(np.uint8)))
-
     img_rgba = Image.fromarray(output_rgba, mode="RGBA")
     return img_rgba
 
@@ -74,12 +72,11 @@ def remove_background(pil_image):
 async def api_remove_background(file: UploadFile = File(...)):
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Uploaded file is not an image.")
-
     contents = await file.read()
     pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
+    file.file.close()  # Close the uploaded file
 
     output_img = remove_background(pil_image)
-
     buf = io.BytesIO()
     output_img.save(buf, format="PNG")
     buf.seek(0)
