@@ -1,44 +1,49 @@
 FROM python:3.9-slim
 
-# Install system dependencies, including libgl1-mesa-glx and libglib2.0-0 + libglib2.0-bin for libgthread-2.0.so.0, plus gdown
+# Install system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      git \
-      wget \
-      curl \
-      libgl1-mesa-glx \
-      libglib2.0-0 \
-      libglib2.0-bin && \
-    pip install --no-cache-dir gdown && \
+        git \
+        wget \
+        curl \
+        libgl1-mesa-glx \
+        libglib2.0-0 \
+        libsm6 \
+        libxrender1 \
+        libxext6 && \
     rm -rf /var/lib/apt/lists/*
 
+# Install gdown
+RUN pip install --no-cache-dir gdown
+
+# Set working directory
 WORKDIR /app
 
-# Clone U-2-Net repo to get model code files
+# Clone U-2-Net repository
 RUN git clone https://github.com/NathanUA/U-2-Net.git
 
-# Copy only model files (including subfolders like __pycache__)
+# Copy model files
 RUN mkdir model && cp -r U-2-Net/model/* model/
 
 # Download pretrained weights
 RUN mkdir -p saved_models/u2net && \
     gdown --id 1ao1ovG1Qtx4b7EoskHXmi2E9rp5CHLcZ -O saved_models/u2net/u2net.pth
 
-# Clean up repo folder
+# Clean up repository
 RUN rm -rf U-2-Net
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app code
+# Copy application code
 COPY app.py .
 
-# Expose port 8080
+# Expose port
 EXPOSE 8080
 
-# Optional healthcheck script for local container testing
+# Healthcheck script
 RUN echo '#!/bin/sh\ncurl -f http://localhost:8080/health || exit 1' > /healthcheck.sh && chmod +x /healthcheck.sh
 
-# Run FastAPI app with uvicorn and debug logs
+# Run the application
 CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port 8080 --log-level debug"]
