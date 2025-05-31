@@ -1,13 +1,20 @@
-app = "unet-bg-remover"
+app = "unet-bg-remover"  # Replace with your Fly.io app name
 
 kill_signal = "SIGINT"
 kill_timeout = 5
-processes = []
 
 [env]
+  # Set environment variables here if needed
+
+[build]
+  # You can specify build args or builder if needed
+
+[experimental]
+  allowed_public_ports = [8080]
+  auto_rollback = true
 
 [[services]]
-  internal_port = 8000
+  internal_port = 8080
   protocol = "tcp"
 
   [[services.ports]]
@@ -17,11 +24,3 @@ processes = []
   [[services.ports]]
     port = 443
     handlers = ["tls", "http"]
-
-  [[services.http_checks]]
-    interval = 10000       # 10 seconds
-    timeout = 2000         # 2 seconds
-    grace_period = 5000    # 5 seconds delay before health checks start
-    method = "GET"
-    path = "/"
-    tls_skip_verify = true
