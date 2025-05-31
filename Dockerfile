@@ -7,11 +7,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libgl1-mesa-glx \
     libglib2.0-0 \
-    libgthread-2.0-0 \
     libglib2.0-dev \
+    libgtk2.0-dev \
     libsm6 \
     libxrender1 \
+    libxrender-dev \
     libxext6 \
+    tree \
     && rm -rf /var/lib/apt/lists/*
 
 # Set work directory
