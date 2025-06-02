@@ -70,7 +70,7 @@ def resize_large_image(img):
     if max_side > MAX_DIMENSION:
         scale = MAX_DIMENSION / max_side
         new_size = (int(img.width * scale), int(img.height * scale))
-        return img.resize(new_size, Image.ANTIALIAS)
+        img.resize(new_size, Image.Resampling.LANCZOS)
     return img
 
 # Preprocess
