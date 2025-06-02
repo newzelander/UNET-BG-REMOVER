@@ -1,21 +1,21 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 import io
 import torch
 import numpy as np
 import cv2
 import torchvision.transforms as transforms
+import logging
 
-# Import the full U2NET model class
+# Import U2NET model class
 from model.u2net import U2NET
 
 app = FastAPI()
 
-origins = [
-    "https://spaceluma.webflow.io",
-]
+# Allow CORS from Webflow
+origins = ["https://spaceluma.webflow.io"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,14 +25,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Constants
 MODEL_PATH = "saved_models/u2net/u2net.pth"
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+MAX_FILE_SIZE_MB = 8
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
+# Logging setup
+logging.basicConfig(level=logging.INFO)
+
+# Load model
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = U2NET(3, 1)
 model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
 model.to(device)
 model.eval()
 
+# Preprocessing
 def preprocess(pil_image):
     transform = transforms.Compose([
         transforms.Resize((320, 320)),
@@ -44,6 +52,7 @@ def preprocess(pil_image):
     ])
     return transform(pil_image).unsqueeze(0)
 
+# Background removal
 def remove_background(pil_image):
     input_tensor = preprocess(pil_image).to(device)
     with torch.no_grad():
@@ -66,20 +75,43 @@ def remove_background(pil_image):
     img_rgba = Image.fromarray(output_rgba, mode="RGBA")
     return img_rgba
 
+# Endpoint: Remove background
 @app.post("/remove-background")
 async def api_remove_background(file: UploadFile = File(...)):
+    # Check file type
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Uploaded file is not an image.")
+
+    # Read file contents
     contents = await file.read()
-    pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
-    file.file.close()
 
-    output_img = remove_background(pil_image)
-    buf = io.BytesIO()
-    output_img.save(buf, format="PNG")
-    buf.seek(0)
-    return StreamingResponse(buf, media_type="image/png")
+    # File size limit
+    if len(contents) > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(status_code=413, detail=f"File too large. Max allowed is {MAX_FILE_SIZE_MB}MB.")
 
+    try:
+        # Try to open the image
+        pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
+    except UnidentifiedImageError:
+        raise HTTPException(status_code=400, detail="Uploaded file is not a valid image.")
+    except Exception as e:
+        logging.error(f"Unexpected error while opening image: {e}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred while processing the image.")
+    finally:
+        file.file.close()
+
+    # Process
+    try:
+        output_img = remove_background(pil_image)
+        buf = io.BytesIO()
+        output_img.save(buf, format="PNG")
+        buf.seek(0)
+        return StreamingResponse(buf, media_type="image/png")
+    except Exception as e:
+        logging.error(f"Error during background removal: {e}")
+        raise HTTPException(status_code=500, detail="Error during background removal.")
+
+# Health check endpoint
 @app.get("/health")
 async def health():
     return {"status": "ok"}
