@@ -12,6 +12,7 @@ import numpy as np
 import cv2
 import torchvision.transforms as transforms
 import logging
+import gc
 
 # Import U2NET model class
 from model.u2net import U2NET
@@ -47,6 +48,7 @@ app.add_middleware(LimitUploadSizeMiddleware, max_upload_size=8 * 1024 * 1024)  
 MODEL_PATH = "saved_models/u2net/u2net.pth"
 MAX_FILE_SIZE_MB = 8
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+MAX_DIMENSION = 1024  # Max width or height to resize big images before processing
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -57,6 +59,15 @@ model = U2NET(3, 1)
 model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
 model.to(device)
 model.eval()
+
+# Early resize function to limit max dimension of input images
+def resize_large_image(img):
+    max_side = max(img.size)
+    if max_side > MAX_DIMENSION:
+        scale = MAX_DIMENSION / max_side
+        new_size = (int(img.width * scale), int(img.height * scale))
+        return img.resize(new_size, Image.ANTIALIAS)
+    return img
 
 # Preprocessing
 def preprocess(pil_image):
@@ -76,6 +87,12 @@ def remove_background(pil_image):
         pred = d1[:, 0, :, :]
         pred = (pred - pred.min()) / (pred.max() - pred.min())
         pred_np = pred.squeeze().cpu().numpy()
+
+    # Free up GPU memory if applicable
+    del d1, pred
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     alpha = cv2.resize(pred_np, (pil_image.width, pil_image.height), interpolation=cv2.INTER_LINEAR)
     alpha_blur = cv2.GaussianBlur(alpha, (5, 5), sigmaX=1.2)
@@ -114,6 +131,9 @@ async def api_remove_background(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Unexpected error while processing image.")
     finally:
         file.file.close()
+
+    # Resize large images early to reduce memory footprint
+    pil_image = resize_large_image(pil_image)
 
     # Process image
     try:
