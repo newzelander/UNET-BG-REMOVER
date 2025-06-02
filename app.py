@@ -5,7 +5,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, UnidentifiedImageError, ImageFile
 import io
 import torch
 import numpy as np
@@ -30,7 +30,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Middleware to limit upload size before file is read
+# Middleware to limit upload size
 class LimitUploadSizeMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, max_upload_size: int):
         super().__init__(app)
@@ -42,25 +42,29 @@ class LimitUploadSizeMiddleware(BaseHTTPMiddleware):
             return Response("File too large", status_code=413)
         return await call_next(request)
 
-app.add_middleware(LimitUploadSizeMiddleware, max_upload_size=8 * 1024 * 1024)  # 8 MB
+app.add_middleware(LimitUploadSizeMiddleware, max_upload_size=20 * 1024 * 1024)  # 20 MB
 
 # Constants
 MODEL_PATH = "saved_models/u2net/u2net.pth"
-MAX_FILE_SIZE_MB = 8
+MAX_FILE_SIZE_MB = 20
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
-MAX_DIMENSION = 1024  # Max width or height to resize big images before processing
+MAX_DIMENSION = 1024  # Resize images larger than this dimension
 
-# Logging setup
+# Enable loading truncated images
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+# Logging
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Load model
+# Load U2NET model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = U2NET(3, 1)
 model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
 model.to(device)
 model.eval()
 
-# Early resize function to limit max dimension of input images
+# Resize large images early
 def resize_large_image(img):
     max_side = max(img.size)
     if max_side > MAX_DIMENSION:
@@ -69,7 +73,7 @@ def resize_large_image(img):
         return img.resize(new_size, Image.ANTIALIAS)
     return img
 
-# Preprocessing
+# Preprocess
 def preprocess(pil_image):
     transform = transforms.Compose([
         transforms.Resize((320, 320)),
@@ -79,21 +83,22 @@ def preprocess(pil_image):
     ])
     return transform(pil_image).unsqueeze(0)
 
-# Background removal
+# Remove background
 def remove_background(pil_image):
     input_tensor = preprocess(pil_image).to(device)
     with torch.no_grad():
         d1, *_ = model(input_tensor)
         pred = d1[:, 0, :, :]
-        pred = (pred - pred.min()) / (pred.max() - pred.min())
+        pred = (pred - pred.min()) / (pred.max() - pred.min() + 1e-8)
         pred_np = pred.squeeze().cpu().numpy()
 
-    # Free up GPU memory if applicable
-    del d1, pred
+    # Free GPU and CPU memory
+    del d1, pred, input_tensor
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
+    # Create alpha mask
     alpha = cv2.resize(pred_np, (pil_image.width, pil_image.height), interpolation=cv2.INTER_LINEAR)
     alpha_blur = cv2.GaussianBlur(alpha, (5, 5), sigmaX=1.2)
     alpha_mix = np.clip(alpha * 0.75 + alpha_blur * 0.25, 0, 1)
@@ -105,48 +110,41 @@ def remove_background(pil_image):
 
     img_np = np.array(pil_image).astype(np.uint8)
     output_rgba = np.dstack((img_np, (alpha_final * 255).astype(np.uint8)))
-    img_rgba = Image.fromarray(output_rgba, mode="RGBA")
-    return img_rgba
+    return Image.fromarray(output_rgba, mode="RGBA")
 
-# Endpoint: Remove background
+# Endpoint
 @app.post("/remove-background")
 async def api_remove_background(file: UploadFile = File(...)):
-    # Check MIME type
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Uploaded file is not an image.")
 
-    # Read file contents
     contents = await file.read()
 
-    # Extra safety check
     if len(contents) > MAX_FILE_SIZE_BYTES:
         raise HTTPException(status_code=413, detail=f"File too large. Max allowed is {MAX_FILE_SIZE_MB}MB.")
 
     try:
         pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
     except UnidentifiedImageError:
-        raise HTTPException(status_code=400, detail="Uploaded file is not a valid image.")
+        raise HTTPException(status_code=400, detail="Invalid image format.")
     except Exception as e:
-        logging.error(f"Error opening image: {e}")
-        raise HTTPException(status_code=500, detail="Unexpected error while processing image.")
+        logger.error(f"Failed to open image: {e}")
+        raise HTTPException(status_code=500, detail="Error reading image.")
     finally:
         file.file.close()
 
-    # Resize large images early to reduce memory footprint
-    pil_image = resize_large_image(pil_image)
-
-    # Process image
     try:
-        output_img = remove_background(pil_image)
+        pil_image = resize_large_image(pil_image)
+        result_img = remove_background(pil_image)
         buf = io.BytesIO()
-        output_img.save(buf, format="PNG")
+        result_img.save(buf, format="PNG")
         buf.seek(0)
         return StreamingResponse(buf, media_type="image/png")
     except Exception as e:
-        logging.error(f"Error during background removal: {e}")
-        raise HTTPException(status_code=500, detail="Error during background removal.")
+        logger.exception("Error during background removal")
+        raise HTTPException(status_code=500, detail="Background removal failed.")
 
-# Health check endpoint
+# Health check
 @app.get("/health")
 async def health():
     return {"status": "ok"}
