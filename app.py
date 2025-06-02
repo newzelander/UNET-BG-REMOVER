@@ -1,6 +1,10 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+
 from PIL import Image, UnidentifiedImageError
 import io
 import torch
@@ -25,6 +29,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Middleware to limit upload size before file is read
+class LimitUploadSizeMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, max_upload_size: int):
+        super().__init__(app)
+        self.max_upload_size = max_upload_size
+
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > self.max_upload_size:
+            return Response("File too large", status_code=413)
+        return await call_next(request)
+
+app.add_middleware(LimitUploadSizeMiddleware, max_upload_size=8 * 1024 * 1024)  # 8 MB
+
 # Constants
 MODEL_PATH = "saved_models/u2net/u2net.pth"
 MAX_FILE_SIZE_MB = 8
@@ -45,10 +63,8 @@ def preprocess(pil_image):
     transform = transforms.Compose([
         transforms.Resize((320, 320)),
         transforms.ToTensor(),
-        transforms.Normalize(
-            mean=(0.485, 0.456, 0.406),
-            std=(0.229, 0.224, 0.225),
-        ),
+        transforms.Normalize(mean=(0.485, 0.456, 0.406),
+                             std=(0.229, 0.224, 0.225)),
     ])
     return transform(pil_image).unsqueeze(0)
 
@@ -78,29 +94,28 @@ def remove_background(pil_image):
 # Endpoint: Remove background
 @app.post("/remove-background")
 async def api_remove_background(file: UploadFile = File(...)):
-    # Check file type
+    # Check MIME type
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Uploaded file is not an image.")
 
     # Read file contents
     contents = await file.read()
 
-    # File size limit
+    # Extra safety check
     if len(contents) > MAX_FILE_SIZE_BYTES:
         raise HTTPException(status_code=413, detail=f"File too large. Max allowed is {MAX_FILE_SIZE_MB}MB.")
 
     try:
-        # Try to open the image
         pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
     except UnidentifiedImageError:
         raise HTTPException(status_code=400, detail="Uploaded file is not a valid image.")
     except Exception as e:
-        logging.error(f"Unexpected error while opening image: {e}")
-        raise HTTPException(status_code=500, detail="An unexpected error occurred while processing the image.")
+        logging.error(f"Error opening image: {e}")
+        raise HTTPException(status_code=500, detail="Unexpected error while processing image.")
     finally:
         file.file.close()
 
-    # Process
+    # Process image
     try:
         output_img = remove_background(pil_image)
         buf = io.BytesIO()
