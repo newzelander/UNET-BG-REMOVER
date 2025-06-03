@@ -19,8 +19,8 @@ primary_region = "waw"
 
 [checks]
   [checks.http]
-    interval = "10s"
-    timeout = "5s"
     method = "get"
     path = "/health"
+    interval = "10s"
+    timeout = "5s"
     grace_period = "20s"
