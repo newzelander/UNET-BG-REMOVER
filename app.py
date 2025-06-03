@@ -70,7 +70,7 @@ def resize_large_image(img):
     if max_side > MAX_DIMENSION:
         scale = MAX_DIMENSION / max_side
         new_size = (int(img.width * scale), int(img.height * scale))
-        img = img.resize(new_size, Image.Resampling.LANCZOS)  # FIXED: reassignment
+        img = img.resize(new_size, Image.Resampling.LANCZOS)
     return img
 
 # Preprocess
@@ -135,16 +135,16 @@ async def api_remove_background(file: UploadFile = File(...)):
 
     try:
         pil_image = resize_large_image(pil_image)
-        result_img = remove_background(pil_image)
-        buf = io.BytesIO()
-        result_img.save(buf, format="PNG")
-        buf.seek(0)
-        return StreamingResponse(buf, media_type="image/png")
+        result_image = remove_background(pil_image)
+        img_bytes = io.BytesIO()
+        result_image.save(img_bytes, format="PNG")
+        img_bytes.seek(0)
+        return StreamingResponse(img_bytes, media_type="image/png")
     except Exception as e:
-        logger.exception("Error during background removal")
-        raise HTTPException(status_code=500, detail="Background removal failed.")
+        logger.error(f"Processing failed: {e}")
+        raise HTTPException(status_code=500, detail="Error processing image.")
 
-# Health check
+# Health check endpoint
 @app.get("/health")
-async def health():
+def health_check():
     return {"status": "ok"}
