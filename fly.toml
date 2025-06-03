@@ -18,9 +18,9 @@ primary_region = "waw"
   memory_mb = 1024
 
 [[checks]]
-  type = "http"
-  method = "get"
-  path = "/health"
-  interval = "10s"
-  timeout = "5s"
-  grace_period = "20s"
+type = "http"
+method = "get"
+path = "/health"
+interval = "10s"
+timeout = "5s"
+grace_period = "20s"
