@@ -6,9 +6,9 @@ primary_region = "waw"
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = false  # prevent machines from stopping completely
+  auto_stop_machines = stop  # prevent machines from stopping completely
   auto_start_machines = true
-  min_machines_running = 1    # keep at least one warm instance
+  min_machines_running = 0    # keep at least one warm instance
   processes = ["app"]
 
 [[vm]]
